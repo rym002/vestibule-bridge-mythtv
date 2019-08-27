@@ -135,4 +135,16 @@ describe('frontends', () => {
         const status2 = await frontend.GetStatus();
         expect(status).not.eql(status2);
     })
+    it('should reset cache on GetRefreshedStatus', async () => {
+        const frontend = frontends[1];
+        const status = await frontend.GetRefreshedStatus();
+        const status2 = await frontend.GetRefreshedStatus();
+        expect(status).not.eql(status2);
+    })
+    it('should cache event delta', async () => {
+        const frontend = frontends[0];
+        const eventDelta1 = await frontend.eventDeltaId();
+        const eventDelta2 = await frontend.eventDeltaId();
+        expect(eventDelta1).eql(eventDelta2);
+    })
 })

@@ -1,19 +1,28 @@
 import { FrontendStatus, Frontend, SendActionRequest, SendKeyRequest, backend, frontend } from "mythtv-services-api";
 import { MythSenderEventEmitter, mythNotifier } from "mythtv-event-emitter";
-import { compact, memoize } from 'lodash'
+import { compact, memoize,MemoizedFunction } from 'lodash'
 import { mergeObject } from "./mergeObject";
 
 export const frontends: MythEventFrontend[] = []
 
 class CachingEventFrontend {
-    private readonly memoizeStatus: _.MemoizedFunction
+    private readonly memoizeStatus: MemoizedFunction
+    private readonly memoizeEventDelta: MemoizedFunction
+
     GetStatus: () => Promise<FrontendStatus>
+    eventDeltaId: () => symbol
     constructor(private readonly fe: Frontend, readonly mythEventEmitter: MythSenderEventEmitter) {
         const memoizeStatus = memoize(fe.GetStatus.bind(fe))
         this.GetStatus = memoizeStatus;
         this.memoizeStatus = memoizeStatus
+        const memoizeEventDelta = memoize(()=>{
+            return Symbol();
+        })
+        this.eventDeltaId = memoizeEventDelta;
+        this.memoizeEventDelta = memoizeEventDelta
         mythEventEmitter.prependListener('pre', (eventType, message) => {
             this.clearStatusCache()
+            this.clearEventDeltaCache()
         });
     }
     async isWatchingTv(): Promise<boolean> {
@@ -29,8 +38,20 @@ class CachingEventFrontend {
         this.clearStatusCache();
         return this.fe.SendKey(req);
     }
+    async GetRefreshedStatus(): Promise<FrontendStatus> {
+        this.clearStatusCache();
+        return this.GetStatus();
+    }
+
+    private clearCache(funct:MemoizedFunction){
+        funct.cache.clear && funct.cache.clear();
+    }
+
     private clearStatusCache() {
-        this.memoizeStatus.cache.clear && this.memoizeStatus.cache.clear();
+        this.clearCache(this.memoizeStatus);
+    }
+    private clearEventDeltaCache() {
+        this.clearCache(this.memoizeEventDelta);
     }
 }
 
@@ -49,6 +70,8 @@ export async function loadFrontends(): Promise<void> {
 export interface MythEventFrontend extends Frontend {
     readonly mythEventEmitter: MythSenderEventEmitter
     isWatchingTv(): Promise<boolean>
+    GetRefreshedStatus(): Promise<FrontendStatus>
+    eventDeltaId(): symbol
 }
 
 async function initFrontend(host: string): Promise<MythEventFrontend | undefined> {
