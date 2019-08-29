@@ -1,29 +1,34 @@
-import { listenInit, registerModule } from '@vestibule-link/bridge';
+import { registerModule } from '@vestibule-link/bridge';
 import { addRouter } from '@vestibule-link/bridge-http';
 import { httpRouter } from 'mythtv-event-emitter';
 import { loadFrontends } from './frontends';
 import { backendSettings } from 'mythtv-services-api';
+import { startModule as httpStartModule } from '@vestibule-link/bridge-http'
 
 const urlConfig = process.env['MYTHTV_BACKEND_URL'];
 const mythURL: URL | undefined = urlConfig ? new URL(urlConfig) : undefined
 
-
-listenInit('http', async () => {
-    addRouter('/mythtv', httpRouter)
-    registerModule({
-        name: 'mythtv',
-        init: async () => {
-            if (mythURL) {
-                backendSettings({
-                    protocol: mythURL.protocol,
-                    hostname: mythURL.hostname,
-                    port: Number(mythURL.port)
-                })
-            }
-            await loadFrontends();
-        }
-    })
-})
+let moduleId: symbol | undefined;
+export function startModule() {
+    if (!moduleId) {
+        moduleId = registerModule({
+            name: 'mythtv',
+            init: async () => {
+                addRouter('/mythtv', httpRouter)
+                if (mythURL) {
+                    backendSettings({
+                        protocol: mythURL.protocol,
+                        hostname: mythURL.hostname,
+                        port: Number(mythURL.port)
+                    })
+                }
+                await loadFrontends();
+            },
+            depends:[httpStartModule()]
+        })
+    }
+    return moduleId;
+}
 
 export { mergeObject } from './mergeObject';
 export { frontends, MythEventFrontend } from './frontends'
