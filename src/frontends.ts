@@ -1,6 +1,6 @@
 import { FrontendStatus, Frontend, SendActionRequest, SendKeyRequest, backend, frontend } from "mythtv-services-api";
 import { MythSenderEventEmitter, mythNotifier } from "mythtv-event-emitter";
-import { compact, memoize,MemoizedFunction } from 'lodash'
+import { compact, memoize, MemoizedFunction } from 'lodash'
 import { mergeObject } from "./mergeObject";
 
 export const frontends: MythEventFrontend[] = []
@@ -15,7 +15,7 @@ class CachingEventFrontend {
         const memoizeStatus = memoize(fe.GetStatus.bind(fe))
         this.GetStatus = memoizeStatus;
         this.memoizeStatus = memoizeStatus
-        const memoizeEventDelta = memoize(()=>{
+        const memoizeEventDelta = memoize(() => {
             return Symbol();
         })
         this.eventDeltaId = memoizeEventDelta;
@@ -30,6 +30,11 @@ class CachingEventFrontend {
         const state = status.State.state;
         return state == 'WatchingLiveTV';
     }
+    async isWatching(): Promise<boolean> {
+        const status: FrontendStatus = await this.GetStatus();
+        const state = status.State.state;
+        return state.startsWith('Watching');
+    }
     async SendAction(req: SendActionRequest, ignoreError?: boolean): Promise<void> {
         this.clearStatusCache();
         return this.fe.SendAction(req, ignoreError);
@@ -43,7 +48,7 @@ class CachingEventFrontend {
         return this.GetStatus();
     }
 
-    private clearCache(funct:MemoizedFunction){
+    private clearCache(funct: MemoizedFunction) {
         funct.cache.clear && funct.cache.clear();
     }
 
@@ -70,6 +75,7 @@ export async function loadFrontends(): Promise<void> {
 export interface MythEventFrontend extends Frontend {
     readonly mythEventEmitter: MythSenderEventEmitter
     isWatchingTv(): Promise<boolean>
+    isWatching(): Promise<boolean>
     GetRefreshedStatus(): Promise<FrontendStatus>
     eventDeltaId(): symbol
 }
