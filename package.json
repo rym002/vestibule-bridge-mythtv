@@ -1,6 +1,6 @@
 {
   "name": "@vestibule-link/bridge-mythtv",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "MythTv integration",
   "main": "dist/index.js",
   "scripts": {
