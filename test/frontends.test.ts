@@ -1,68 +1,31 @@
 import 'mocha';
-import { MythEventFrontend, frontends, loadFrontends } from '../src/frontends'
+import { frontends, loadFrontends } from '../src/frontends'
 import { expect } from 'chai'
 import * as nock from 'nock';
 
 describe('frontends', () => {
     before(async () => {
         nock("http://localhost:6544/Myth")
-            .get('/GetHosts').reply(200, () => {
-                return {
-                    StringList: [
-                        "hostgood",
-                        "hostbad",
-                        "hostcache"
-                    ]
-                };
-            }).get('/GetSetting').query({
-                Key: 'FrontendStatusPort',
-                HostName: 'hostbad',
-                Default: '6547'
-            }).reply(200, () => {
-                return {
-                    String: '6547'
-                };
-            }).get('/GetSetting').query({
-                Key: 'FrontendStatusPort',
-                HostName: 'hostgood',
-                Default: '6547'
-            }).reply(200, () => {
-                return {
-                    String: '6547'
-                };
-            }).get('/GetSetting').query({
-                Key: 'FrontendStatusPort',
-                HostName: 'hostcache',
-                Default: '6547'
-            }).reply(200, () => {
-                return {
-                    String: '6547'
-                };
-            }).get('/GetSetting').query({
-                Key: 'Theme',
-                HostName: 'hostbad'
-            }).reply(200, () => {
-                return {
-                    String: undefined
-                };
-            }).get('/GetSetting').query({
-                Key: 'Theme',
-                HostName: 'hostcache'
-            }).reply(200, () => {
-                return {
-                    String: 'good'
-                };
-            }).get('/GetSetting').query({
-                Key: 'Theme',
-                HostName: 'hostgood'
-            }).reply(200, () => {
-                return {
-                    String: 'goof'
-                };
+            .get('/GetFrontends')
+            .query({
+                OnLine: false
+            })
+            .reply(200, {
+                FrontendList: {
+                    Frontends: [
+                        {
+                            Name: "hostgood",
+                            IP: "hostgood",
+                            Port: "6547"
+                        }, {
+                            Name: "hostcache",
+                            IP: "hostcache",
+                            Port: "6547"
+                        }]
+                }
             })
 
         await loadFrontends();
-
         nock('http://hostgood:6547/Frontend')
             .get('/GetStatus').once().reply(200, () => {
                 return {
@@ -103,7 +66,7 @@ describe('frontends', () => {
                 }
             })
     })
-    it('should load frontends', () => {
+    it('should load frontends', async () => {
         expect(frontends).to.have.length(2);
     })
     it('should cache getStatus', async () => {
@@ -143,8 +106,8 @@ describe('frontends', () => {
     })
     it('should cache event delta', async () => {
         const frontend = frontends[0];
-        const eventDelta1 = await frontend.eventDeltaId();
-        const eventDelta2 = await frontend.eventDeltaId();
+        const eventDelta1 = frontend.eventDeltaId();
+        const eventDelta2 = frontend.eventDeltaId();
         expect(eventDelta1).eql(eventDelta2);
     })
 })
