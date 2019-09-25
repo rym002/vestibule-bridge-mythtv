@@ -17,7 +17,7 @@ export function startModule() {
                 addRouter('/mythtv', httpRouter)
                 if (mythURL) {
                     masterBackendSettings({
-                        protocol: mythURL.protocol,
+                        protocol: mythURL.protocol.substr(0,mythURL.protocol.length-1),
                         hostname: mythURL.hostname,
                         port: Number(mythURL.port)
                     })
