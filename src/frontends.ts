@@ -5,7 +5,7 @@ import { mergeObject } from "./mergeObject";
 
 export const frontends: MythEventFrontend[] = []
 
-class CachingEventFrontend {
+export class CachingEventFrontend {
     private readonly memoizeStatus: MemoizedFunction
     private readonly memoizeEventDelta: MemoizedFunction
 
