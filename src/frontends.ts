@@ -2,6 +2,7 @@ import { memoize, MemoizedFunction } from 'lodash';
 import { mythNotifier, MythSenderEventEmitter } from "mythtv-event-emitter";
 import { ApiTypes, Frontend, getFrontendServices } from "mythtv-services-api";
 import { mergeObject } from "./mergeObject";
+import { EventMapping } from 'mythtv-event-emitter/dist/messages';
 
 export const frontends: MythEventFrontend[] = []
 
@@ -58,6 +59,20 @@ export class CachingEventFrontend {
     private clearEventDeltaCache() {
         this.clearCache(this.memoizeEventDelta);
     }
+    monitorMythEvent<T extends keyof EventMapping, P extends EventMapping[T]>(eventName: T, timeout: number): Promise<P> {
+        return new Promise((resolve, reject) => {
+            const timeoutId = setTimeout(() => {
+                this.mythEventEmitter.removeListener(eventName, listener)
+                const error = new Error('Event Timeout ' + eventName)
+                reject(error)
+            }, timeout);
+            const listener: (message: P) => void = (message) => {
+                clearTimeout(timeoutId);
+                resolve(message)
+            }
+            this.mythEventEmitter.once(eventName, listener)
+        })
+    }
 }
 
 export async function loadFrontends(): Promise<void> {
@@ -76,6 +91,7 @@ export interface MythEventFrontend extends Frontend.Service {
     isWatching(): Promise<boolean>
     GetRefreshedStatus(): Promise<ApiTypes.FrontendStatus>
     eventDeltaId(): symbol
+    monitorMythEvent<T extends keyof EventMapping, P extends EventMapping[T]>(eventName: T, timeout: number): Promise<P>;
 }
 
 function initFrontend(fe: Frontend.Service): MythEventFrontend {
