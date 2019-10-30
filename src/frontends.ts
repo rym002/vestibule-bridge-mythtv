@@ -95,7 +95,7 @@ export interface MythEventFrontend extends Frontend.Service {
 }
 
 function initFrontend(fe: Frontend.Service): MythEventFrontend {
-    const mythEmitter = mythNotifier.sender(fe.hostname());
+    const mythEmitter = mythNotifier.hostEmitter(fe.hostname());
     const ret = new CachingEventFrontend(fe, mythEmitter);
     return mergeObject(ret, fe);
 }
