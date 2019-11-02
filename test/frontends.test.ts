@@ -2,6 +2,7 @@ import 'mocha';
 import { frontends, loadFrontends, MythEventFrontend } from '../src/frontends'
 import { expect } from 'chai'
 import * as nock from 'nock';
+import { createSandbox } from 'sinon';
 import { EndpointEmitter } from '@vestibule-link/bridge-assistant';
 import { EventEmitter } from 'events';
 import { AlexaEndpoint, SubType } from '@vestibule-link/iot-types';
@@ -17,6 +18,7 @@ class RefreshEmitter extends EventEmitter implements EndpointEmitter<'alexa'> {
     private markDone(deltaId: symbol, eventType: SubType<DoneHolder, 'eventType'>) {
         const done = this.doneTrackers.get(deltaId)
         if (done) {
+            this.doneTrackers.delete(deltaId)
             if (done.eventType == eventType) {
                 done.done()
             } else {
@@ -35,6 +37,9 @@ class RefreshEmitter extends EventEmitter implements EndpointEmitter<'alexa'> {
 }
 describe('frontends', () => {
     const refreshEmitter = new RefreshEmitter()
+    const sandbox = createSandbox({
+        useFakeTimers: true
+    })
     before(async () => {
         nock("http://localhost:6544/Myth")
             .get('/GetFrontends')
@@ -56,9 +61,10 @@ describe('frontends', () => {
                 }
             })
 
-        await loadFrontends();
         nock('http://hostgood:6547/Frontend')
-            .get('/GetStatus').once().reply(200, () => {
+            .get('/GetStatus')
+            .once()
+            .reply(200, () => {
                 return {
                     FrontendStatus: {
                         State: {
@@ -67,6 +73,17 @@ describe('frontends', () => {
                     }
                 }
             })
+        nock('http://hostcache:6547/Frontend')
+            .get('/GetStatus')
+            .once()
+            .reply(200, () => {
+                return {
+                    FrontendStatus: {
+                        Name: 'testfe'
+                    }
+                }
+            })
+        await loadFrontends();
     })
 
     beforeEach(() => {
@@ -74,7 +91,7 @@ describe('frontends', () => {
             .get('/GetStatus').once().reply(200, () => {
                 return {
                     FrontendStatus: {
-                        Name: 'testfe'
+                        Name: 'testfe1'
                     }
                 }
             }).get('/GetStatus').once().reply(200, () => {
@@ -108,7 +125,7 @@ describe('frontends', () => {
     })
     it('should check watching tv', async () => {
         const frontend = frontends[0];
-        const status = await frontend.isWatchingTv();
+        const status = frontend.isWatchingTv();
         expect(status).to.be.true;
     })
     it('should reset cache on SendAction', async () => {
@@ -177,6 +194,51 @@ describe('frontends', () => {
             mythNotifier.emit('MythEvent', frontend.hostname(), 'CLIENT_DISCONNECTED', {
                 SENDER: ''
             })
+        })
+        it('should return watching = false PLAY_STOPPED',async ()=>{
+            const frontend = frontends[0];
+            const monitor = frontend.monitorMythEvent('PLAY_STOPPED',2000)
+            frontend.mythEventEmitter.emit('PLAY_STOPPED',{
+                SENDER:''
+            })
+            await monitor
+            expect(frontend.isWatching()).to.be.false
+        })
+        it('should return watching = true PLAY_CHANGED',async ()=>{
+            const frontend = frontends[0];
+            const monitor = frontend.monitorMythEvent('PLAY_CHANGED',2000)
+            frontend.mythEventEmitter.emit('PLAY_CHANGED',{
+                SENDER:''
+            })
+            await monitor
+            expect(frontend.isWatching()).to.be.true
+        })
+        it('should return watching = true PLAY_STARTED',async ()=>{
+            const frontend = frontends[0];
+            const monitor = frontend.monitorMythEvent('PLAY_STARTED',2000)
+            frontend.mythEventEmitter.emit('PLAY_STARTED',{
+                SENDER:''
+            })
+            await monitor
+            expect(frontend.isWatching()).to.be.true
+        })
+        it('should return watchingTv = true LIVETV_STARTED',async ()=>{
+            const frontend = frontends[0];
+            const monitor = frontend.monitorMythEvent('LIVETV_STARTED',2000)
+            frontend.mythEventEmitter.emit('LIVETV_STARTED',{
+                SENDER:''
+            })
+            await monitor
+            expect(frontend.isWatchingTv()).to.be.true
+        })
+        it('should return watchingTv = false LIVETV_ENDED',async ()=>{
+            const frontend = frontends[0];
+            const monitor = frontend.monitorMythEvent('LIVETV_ENDED',2000)
+            frontend.mythEventEmitter.emit('LIVETV_ENDED',{
+                SENDER:''
+            })
+            await monitor
+            expect(frontend.isWatchingTv()).to.be.false
         })
     })
 })

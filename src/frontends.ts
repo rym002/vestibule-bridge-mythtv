@@ -14,8 +14,10 @@ export class CachingEventFrontend {
     private readonly memoizeEventDelta: MemoizedFunction
     private assistantEmitters = new Map<AssistantType, EndpointEmitter<any>>()
     private disconnectCallbacks = new Set<Callback>()
-    private connected = true
+    private connected = false
     private fePollingTimeout?: NodeJS.Timeout
+    private watchingTv = false
+    private watching = false
     GetStatus: () => Promise<ApiTypes.FrontendStatus>
     eventDeltaId: () => symbol
     constructor(private readonly fe: Frontend.Service, readonly mythEventEmitter: MythSenderEventEmitter) {
@@ -40,6 +42,21 @@ export class CachingEventFrontend {
             this.connected = false
             this.clearPollConnection()
             this.executeDisconnect()
+        })
+        mythEventEmitter.on('LIVETV_STARTED', message => {
+            this.watchingTv = true
+        })
+        mythEventEmitter.on('LIVETV_ENDED', message => {
+            this.watchingTv = false
+        })
+        mythEventEmitter.on('PLAY_STOPPED', message => {
+            this.watching = false
+        })
+        mythEventEmitter.on('PLAY_STARTED', message => {
+            this.watching = true
+        })
+        mythEventEmitter.on('PLAY_CHANGED', message => {
+            this.watching = true
         })
     }
     public addConnectionMonitor<T extends AssistantType>(assistantType: T, emitter: EndpointEmitter<T>, disconnectCallback: Callback) {
@@ -90,15 +107,26 @@ export class CachingEventFrontend {
             callback()
         })
     }
-    async isWatchingTv(): Promise<boolean> {
-        const status: ApiTypes.FrontendStatus = await this.GetStatus();
-        const state = status.State.state;
-        return state == 'WatchingLiveTV';
+    isWatchingTv(): boolean {
+        return this.watchingTv
     }
-    async isWatching(): Promise<boolean> {
-        const status: ApiTypes.FrontendStatus = await this.GetStatus();
-        const state = status.State.state;
-        return state.startsWith('Watching');
+    isWatching(): boolean {
+        return this.watching
+    }
+    public async initFromState() {
+        try {
+            const status: ApiTypes.FrontendStatus = await this.GetStatus();
+            const state = status.State.state;
+            this.connected = true
+            this.watching = state.startsWith('Watching');
+            this.watchingTv = state == 'WatchingLiveTV';
+        } catch (err) {
+            console.log(err)
+        }
+
+    }
+    isConnected(): boolean {
+        return this.connected
     }
     async SendAction(req: Frontend.Request.SendAction, ignoreError?: boolean): Promise<void> {
         this.clearStatusCache();
@@ -141,18 +169,19 @@ export class CachingEventFrontend {
 
 export async function loadFrontends(): Promise<void> {
     const hosts = await getFrontendServices(false)
-    const frontendLookups = hosts.map(host => {
-        const fe = initFrontend(host);
+    const frontendLookups = hosts.map(async (host) => {
+        const fe = await initFrontend(host);
         return fe;
     })
-
-    frontends.push(...frontendLookups);
+    const frontendResolved = await Promise.all(frontendLookups)
+    frontends.push(...frontendResolved);
 }
 
 export interface MythEventFrontend extends Frontend.Service {
     readonly mythEventEmitter: MythSenderEventEmitter
-    isWatchingTv(): Promise<boolean>
-    isWatching(): Promise<boolean>
+    isWatchingTv(): boolean
+    isWatching(): boolean
+    isConnected(): boolean
     GetRefreshedStatus(): Promise<ApiTypes.FrontendStatus>
     eventDeltaId(): symbol
     monitorMythEvent<T extends keyof EventMapping, P extends EventMapping[T]>(eventName: T, timeout: number): Promise<P>;
@@ -160,8 +189,9 @@ export interface MythEventFrontend extends Frontend.Service {
     removeConnectionMonitor<T extends AssistantType>(assistantType: T, disconnectCallback: Callback): void;
 }
 
-function initFrontend(fe: Frontend.Service): MythEventFrontend {
+async function initFrontend(fe: Frontend.Service): Promise<MythEventFrontend> {
     const mythEmitter = mythNotifier.hostEmitter(fe.hostname());
     const ret = new CachingEventFrontend(fe, mythEmitter);
+    await ret.initFromState()
     return mergeObject(ret, fe);
 }
