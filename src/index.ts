@@ -16,15 +16,11 @@ export function startModule() {
             init: async () => {
                 addRouter('/mythtv', httpRouter)
                 if (mythURL) {
-                    masterBackendSettings({
-                        protocol: mythURL.protocol.substr(0,mythURL.protocol.length-1),
-                        hostname: mythURL.hostname,
-                        port: Number(mythURL.port)
-                    })
+                    masterBackendSettings(mythURL)
                 }
                 await loadFrontends();
             },
-            depends:[httpStartModule()]
+            depends: [httpStartModule()]
         })
     }
     return moduleId;
