@@ -1,6 +1,6 @@
 import { memoize, MemoizedFunction } from 'lodash';
 import { mythNotifier, MythSenderEventEmitter } from "mythtv-event-emitter";
-import { ApiTypes, Frontend, getFrontendServices } from "mythtv-services-api";
+import { ApiTypes, Frontend, getFrontendServices, masterBackend } from "mythtv-services-api";
 import { mergeObject } from "./mergeObject";
 import { EventMapping } from 'mythtv-event-emitter/dist/messages';
 import { EndpointEmitter } from '@vestibule-link/bridge-assistant'
@@ -20,7 +20,7 @@ export class CachingEventFrontend {
     private watching = false
     GetStatus: () => Promise<ApiTypes.FrontendStatus>
     eventDeltaId: () => symbol
-    constructor(private readonly fe: Frontend.Service, readonly mythEventEmitter: MythSenderEventEmitter) {
+    constructor(private readonly fe: Frontend.Service, readonly mythEventEmitter: MythSenderEventEmitter, readonly masterBackendEmitter: MythSenderEventEmitter) {
         const memoizeStatus = memoize(fe.GetStatus.bind(fe))
         this.GetStatus = memoizeStatus;
         this.memoizeStatus = memoizeStatus
@@ -167,10 +167,16 @@ export class CachingEventFrontend {
     }
 }
 
+async function getMasterBackendEmitter(): Promise<MythSenderEventEmitter> {
+    const masterHostname = await masterBackend.mythService.GetHostName()
+    return mythNotifier.hostEmitter(masterHostname)
+}
+
 export async function loadFrontends(): Promise<void> {
     const hosts = await getFrontendServices(false)
+    const masterBackendEmitter = await getMasterBackendEmitter()
     const frontendLookups = hosts.map(async (host) => {
-        const fe = await initFrontend(host);
+        const fe = await initFrontend(host, masterBackendEmitter);
         return fe;
     })
     const frontendResolved = await Promise.all(frontendLookups)
@@ -179,6 +185,7 @@ export async function loadFrontends(): Promise<void> {
 
 export interface MythEventFrontend extends Frontend.Service {
     readonly mythEventEmitter: MythSenderEventEmitter
+    readonly masterBackendEmitter: MythSenderEventEmitter
     isWatchingTv(): boolean
     isWatching(): boolean
     isConnected(): boolean
@@ -189,9 +196,9 @@ export interface MythEventFrontend extends Frontend.Service {
     removeConnectionMonitor<T extends AssistantType>(assistantType: T, disconnectCallback: Callback): void;
 }
 
-async function initFrontend(fe: Frontend.Service): Promise<MythEventFrontend> {
+async function initFrontend(fe: Frontend.Service, masterBackendEmitter: MythSenderEventEmitter): Promise<MythEventFrontend> {
     const mythEmitter = mythNotifier.hostEmitter(fe.hostname());
-    const ret = new CachingEventFrontend(fe, mythEmitter);
+    const ret = new CachingEventFrontend(fe, mythEmitter, masterBackendEmitter);
     await ret.initFromState()
     return mergeObject(ret, fe);
 }

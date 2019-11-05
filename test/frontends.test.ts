@@ -59,6 +59,9 @@ describe('frontends', () => {
                             Port: "6547"
                         }]
                 }
+            }).get('/GetHostName')
+            .reply(200, {
+                String: 'hostgood'
             })
 
         nock('http://hostgood:6547/Frontend')
@@ -195,47 +198,47 @@ describe('frontends', () => {
                 SENDER: ''
             })
         })
-        it('should return watching = false PLAY_STOPPED',async ()=>{
+        it('should return watching = false PLAY_STOPPED', async () => {
             const frontend = frontends[0];
-            const monitor = frontend.monitorMythEvent('PLAY_STOPPED',2000)
-            frontend.mythEventEmitter.emit('PLAY_STOPPED',{
-                SENDER:''
+            const monitor = frontend.monitorMythEvent('PLAY_STOPPED', 2000)
+            frontend.mythEventEmitter.emit('PLAY_STOPPED', {
+                SENDER: ''
             })
             await monitor
             expect(frontend.isWatching()).to.be.false
         })
-        it('should return watching = true PLAY_CHANGED',async ()=>{
+        it('should return watching = true PLAY_CHANGED', async () => {
             const frontend = frontends[0];
-            const monitor = frontend.monitorMythEvent('PLAY_CHANGED',2000)
-            frontend.mythEventEmitter.emit('PLAY_CHANGED',{
-                SENDER:''
+            const monitor = frontend.monitorMythEvent('PLAY_CHANGED', 2000)
+            frontend.mythEventEmitter.emit('PLAY_CHANGED', {
+                SENDER: ''
             })
             await monitor
             expect(frontend.isWatching()).to.be.true
         })
-        it('should return watching = true PLAY_STARTED',async ()=>{
+        it('should return watching = true PLAY_STARTED', async () => {
             const frontend = frontends[0];
-            const monitor = frontend.monitorMythEvent('PLAY_STARTED',2000)
-            frontend.mythEventEmitter.emit('PLAY_STARTED',{
-                SENDER:''
+            const monitor = frontend.monitorMythEvent('PLAY_STARTED', 2000)
+            frontend.mythEventEmitter.emit('PLAY_STARTED', {
+                SENDER: ''
             })
             await monitor
             expect(frontend.isWatching()).to.be.true
         })
-        it('should return watchingTv = true LIVETV_STARTED',async ()=>{
+        it('should return watchingTv = true LIVETV_STARTED', async () => {
             const frontend = frontends[0];
-            const monitor = frontend.monitorMythEvent('LIVETV_STARTED',2000)
-            frontend.mythEventEmitter.emit('LIVETV_STARTED',{
-                SENDER:''
+            const monitor = frontend.monitorMythEvent('LIVETV_STARTED', 2000)
+            frontend.mythEventEmitter.emit('LIVETV_STARTED', {
+                SENDER: ''
             })
             await monitor
             expect(frontend.isWatchingTv()).to.be.true
         })
-        it('should return watchingTv = false LIVETV_ENDED',async ()=>{
+        it('should return watchingTv = false LIVETV_ENDED', async () => {
             const frontend = frontends[0];
-            const monitor = frontend.monitorMythEvent('LIVETV_ENDED',2000)
-            frontend.mythEventEmitter.emit('LIVETV_ENDED',{
-                SENDER:''
+            const monitor = frontend.monitorMythEvent('LIVETV_ENDED', 2000)
+            frontend.mythEventEmitter.emit('LIVETV_ENDED', {
+                SENDER: ''
             })
             await monitor
             expect(frontend.isWatchingTv()).to.be.false
