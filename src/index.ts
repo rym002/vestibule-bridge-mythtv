@@ -4,7 +4,7 @@ import { httpRouter } from 'mythtv-event-emitter';
 import { loadFrontends } from './frontends';
 import { masterBackendSettings } from 'mythtv-services-api';
 import { startModule as httpStartModule } from '@vestibule-link/bridge-http'
-
+import { ChannelLookup } from './channel'
 const urlConfig = process.env['MYTHTV_BACKEND_URL'];
 const mythURL: URL | undefined = urlConfig ? new URL(urlConfig) : undefined
 
@@ -19,6 +19,7 @@ export function startModule() {
                     masterBackendSettings(mythURL)
                 }
                 await loadFrontends();
+                await ChannelLookup.instance()
             },
             depends: [httpStartModule()]
         })
@@ -28,3 +29,4 @@ export function startModule() {
 
 export { mergeObject } from './mergeObject';
 export { frontends, MythEventFrontend } from './frontends'
+export { ChannelLookup } from './channel'

@@ -167,7 +167,7 @@ export class CachingEventFrontend {
     }
 }
 
-async function getMasterBackendEmitter(): Promise<MythSenderEventEmitter> {
+export async function getMasterBackendEmitter(): Promise<MythSenderEventEmitter> {
     const masterHostname = await masterBackend.mythService.GetHostName()
     return mythNotifier.hostEmitter(masterHostname)
 }
