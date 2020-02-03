@@ -1,13 +1,13 @@
 import { memoize, MemoizedFunction } from 'lodash';
-import { mythNotifier, MythSenderEventEmitter } from "mythtv-event-emitter";
+import { mythNotifier, MythSenderEventEmitter, monitorEvents, EventMapping } from "mythtv-event-emitter";
 import { ApiTypes, Frontend, getFrontendServices, masterBackend } from "mythtv-services-api";
 import { mergeObject } from "./mergeObject";
-import { EventMapping } from 'mythtv-event-emitter/dist/messages';
 import { EndpointEmitter } from '@vestibule-link/bridge-assistant'
 import { AssistantType } from '@vestibule-link/iot-types'
 export const frontends: MythEventFrontend[] = []
 
 const FE_POLLING_INTERVAL = Number(process.env['MYTH_FE_POLLING_INTERVAL'] || 30000)
+const MONITOR_HOSTNAME = process.env['MYTH_MONITOR_HOSTNAME'] || 'vestibule'
 type Callback = () => void;
 export class CachingEventFrontend {
     private readonly memoizeStatus: MemoizedFunction
@@ -172,6 +172,18 @@ export async function getMasterBackendEmitter(): Promise<MythSenderEventEmitter>
     return mythNotifier.hostEmitter(masterHostname)
 }
 
+export async function monitorMythSocket() {
+    const masterHostname = await masterBackend.mythService.GetHostName()
+    const port = Number(await masterBackend.mythService.GetSetting({
+        Key: 'BackendServerPort',
+        Default: '6543'
+    }))
+    const address = await masterBackend.mythService.GetSetting({
+        Key: 'BackendServerAddr',
+        Default: 'localhost'
+    })
+    await monitorEvents(MONITOR_HOSTNAME, masterHostname, address, port)
+}
 export async function loadFrontends(): Promise<void> {
     const hosts = await getFrontendServices(false)
     const masterBackendEmitter = await getMasterBackendEmitter()

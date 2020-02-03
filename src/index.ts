@@ -1,7 +1,7 @@
 import { registerModule } from '@vestibule-link/bridge';
 import { addRouter } from '@vestibule-link/bridge-http';
 import { httpRouter } from 'mythtv-event-emitter';
-import { loadFrontends } from './frontends';
+import { loadFrontends, monitorMythSocket } from './frontends';
 import { masterBackendSettings } from 'mythtv-services-api';
 import { startModule as httpStartModule } from '@vestibule-link/bridge-http'
 import { ChannelLookup } from './channel'
@@ -18,6 +18,7 @@ export function startModule() {
                 if (mythURL) {
                     masterBackendSettings(mythURL)
                 }
+                await monitorMythSocket()
                 await loadFrontends();
                 await ChannelLookup.instance()
             },
