@@ -3,6 +3,8 @@ import { Dictionary, flatten, keyBy, values } from 'lodash';
 import { ApiTypes, masterBackend } from 'mythtv-services-api';
 import { Channel, Service } from 'sd-json';
 import { getMasterBackendEmitter } from './frontends';
+import { Database, OPEN_READONLY, Statement } from 'sqlite3'
+import { open, Database as Db } from 'sqlite'
 
 class FuseOpt implements Fuse.FuseOptions<AffiliateChannelInfo> {
     readonly includeScore = true
@@ -24,6 +26,62 @@ export interface AffiliateChannelInfo extends ApiTypes.ChannelInfo {
     affiliateName?: string
 }
 
+interface AffiliateProvider {
+    channelAffiliates(): Promise<Channel[]>
+}
+
+class SdJsonAffiliateProvider implements AffiliateProvider {
+    private readonly sdjsonService: Service
+    constructor(userName: string, passwordHash: string, private readonly lineupIds: string[]) {
+        this.sdjsonService = new Service(userName, passwordHash, true)
+    }
+    async channelAffiliates(): Promise<Channel[]> {
+        const sdjsonService = this.sdjsonService
+        const lineupPromises = this.lineupIds.map(async lineupId => {
+            const ret = await sdjsonService.lineupPreview(lineupId)
+            const filtered = ret.filter(lineup => {
+                return lineup.affiliate != undefined
+            })
+            return filtered
+        })
+        const lineups = await Promise.all(lineupPromises)
+        const channels = values(keyBy(flatten(lineups), 'channel'))
+        return channels
+    }
+}
+
+interface DbRow {
+    details: string
+}
+export class SqliteAffiliateProvider implements AffiliateProvider {
+    private db?: Db<Database, Statement>
+    constructor(private readonly dbPath: string) { }
+
+    async getDatabase(mode = OPEN_READONLY): Promise<Db<Database, Statement>> {
+        if (!this.db) {
+            this.db = await open({
+                filename: this.dbPath,
+                driver: Database,
+                mode: mode
+            })
+        }
+        return this.db;
+    }
+    async channelAffiliates(): Promise<Channel[]> {
+        const db = await this.getDatabase()
+        const data = await db.all<DbRow[]>('SELECT details FROM stations WHERE details LIKE ?', '%affiliate%')
+        return data.map(record => {
+            return JSON.parse(record.details)
+        })
+    }
+}
+
+class NullAffiliateProvider implements AffiliateProvider {
+    async channelAffiliates(): Promise<Channel[]> {
+        return []
+    }
+
+}
 export class ChannelLookup {
     private readonly chanNumToIndex = new Map<string, number>();
     private readonly channelNameFuseOpt = new FuseOpt('ChannelName', true)
@@ -32,28 +90,14 @@ export class ChannelLookup {
     private channelInfoByChanId: Dictionary<AffiliateChannelInfo> = {}
     private channelInfoByCallSign: Dictionary<AffiliateChannelInfo> = {}
     private channelInfoByAffiliate: Dictionary<AffiliateChannelInfo> = {}
-    private readonly sdjsonService?: Service
-    private readonly lineupIds: string[]
     private hdSuffixes = ['HD', 'DT', ''];
     private static _instance?: ChannelLookup
-    private constructor(videoSources: ApiTypes.VideoSource[]) {
-        if (videoSources.length) {
-            const videoSource = videoSources[0]
-            this.sdjsonService = new Service(videoSource.UserId, videoSource.Password)
-            this.lineupIds = videoSources.map(videoSource => {
-                return 'USA-' + videoSource.LineupId.replace(':', '-')
-            })
-        } else {
-            this.lineupIds = []
-        }
+    private constructor(readonly affiliateProvider: AffiliateProvider) {
+
     }
     static async instance(): Promise<ChannelLookup> {
         if (!this._instance) {
-            const videoSources = await masterBackend.channelService.GetVideoSourceList()
-            const sdSources = videoSources.VideoSources.filter(videoSource => {
-                return videoSource.Grabber == 'schedulesdirect1'
-            })
-            this._instance = new ChannelLookup(sdSources);
+            this._instance = new ChannelLookup(this.createAffilateProvider());
             await this._instance.refreshChannelMap();
             const instance = this._instance
             const masterBackendEmitter = await getMasterBackendEmitter()
@@ -63,22 +107,17 @@ export class ChannelLookup {
         }
         return this._instance;
     }
-
-    private async channelAffiliates(): Promise<Channel[]> {
-        if (this.sdjsonService) {
-            const sdjsonService = this.sdjsonService
-            const lineupPromises = this.lineupIds.map(async lineupId => {
-                const ret = await sdjsonService.lineupPreview(lineupId)
-                const filtered = ret.filter(lineup => {
-                    return lineup.affiliate != undefined
-                })
-                return filtered
-            })
-            const lineups = await Promise.all(lineupPromises)
-            const channels = values(keyBy(flatten(lineups), 'channel'))
-            return channels
+    static createAffilateProvider(): AffiliateProvider {
+        const dbPath = process.env['MYTH_SDJSON_DB']
+        const username = process.env['MYTH_SDJSON_USER']
+        const passwordHash = process.env['MYTH_SDJSON_PASSWORD_HASH']
+        const lineups = process.env['MYTH_SDJSON_LINEUPS']
+        if (dbPath) {
+            return new SqliteAffiliateProvider(dbPath)
+        } else if (username && passwordHash && lineups) {
+            return new SdJsonAffiliateProvider(username, passwordHash, lineups.split(','))
         } else {
-            return []
+            return new NullAffiliateProvider()
         }
     }
     private async mythChannelInfo(): Promise<ApiTypes.ChannelInfo[]> {
@@ -101,7 +140,7 @@ export class ChannelLookup {
             this.chanNumToIndex.set(channelInfo.ChanNum, index);
         })
         this.channelInfoByCallSign = keyBy(this.channels, 'CallSign')
-        const affiliateChannels = await this.channelAffiliates()
+        const affiliateChannels = await this.affiliateProvider.channelAffiliates()
         affiliateChannels.forEach(channel => {
             const channelInfo = this.channelInfoByCallSign[channel.callsign]
             if (channelInfo) {
