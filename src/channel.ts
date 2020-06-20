@@ -4,7 +4,8 @@ import { ApiTypes, masterBackend } from 'mythtv-services-api';
 import { Channel, Service } from 'sd-json';
 import { getMasterBackendEmitter } from './frontends';
 import { Database, OPEN_READONLY, Statement } from 'sqlite3'
-import { open, Database as Db } from 'sqlite'
+// import * as sqlite3 from 'sqlite3'
+//import { open, Database as Db } from 'sqlite'
 
 class FuseOpt implements Fuse.FuseOptions<AffiliateChannelInfo> {
     readonly includeScore = true
@@ -54,25 +55,37 @@ interface DbRow {
     details: string
 }
 export class SqliteAffiliateProvider implements AffiliateProvider {
-    private db?: Db<Database, Statement>
-    constructor(private readonly dbPath: string) { }
+    private db?: Database
+    constructor(private readonly dbPath: string) {
+    }
 
-    async getDatabase(mode = OPEN_READONLY): Promise<Db<Database, Statement>> {
+    async getDatabase(mode = OPEN_READONLY): Promise<Database> {
         if (!this.db) {
-            this.db = await open({
-                filename: this.dbPath,
-                driver: Database,
-                mode: mode
+            this.db = await new Promise<Database>((resolve, reject) => {
+                const db = new Database(this.dbPath, mode, (err) => {
+                    if (err) {
+                        reject(err)
+                    }
+                    resolve(db)
+                })
             })
         }
         return this.db;
     }
     async channelAffiliates(): Promise<Channel[]> {
         const db = await this.getDatabase()
-        const data = await db.all<DbRow[]>('SELECT details FROM stations WHERE details LIKE ?', '%affiliate%')
-        return data.map(record => {
+        const data = await new Promise<DbRow[]>((resolve,reject)=>{
+            db.all('SELECT details FROM stations WHERE details LIKE ?', '%affiliate%', (err:Error,rows:DbRow[])=>{
+                if (err){
+                    reject(err)
+                }
+                resolve(rows)
+            })
+        })
+        return data.map((record: DbRow) => {
             return JSON.parse(record.details)
         })
+
     }
 }
 
