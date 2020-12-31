@@ -142,19 +142,19 @@ describe('channelLookup', function () {
     })
 
     context('sqlite affiliate', function () {
-        before(async function () {
+        beforeEach(async function () {
             const ap = new SqliteAffiliateProvider(':memory:')
             const db = await ap.getDatabase(OPEN_READWRITE)
-            await db.exec("create table stations ( "
+            db.exec("create table stations ( "
                 + "station varchar(128) not null primary key, "
                 + "details blob not null)")
-            await db.exec(`INSERT INTO stations (station,details) VALUES('stat','{"affiliate":"AFF1","name":"WAB"}')`)
-            await db.exec(`INSERT INTO stations (station,details) VALUES('stat2','{"name":"WAB2"}')`)
-            this.currentTest!.ctx!['ap'] = ap
+            db.exec(`INSERT INTO stations (station,details) VALUES('stat','{"affiliate":"AFF1","name":"WAB"}')`)
+            db.exec(`INSERT INTO stations (station,details) VALUES('stat2','{"name":"WAB2"}')`)
+            this.currentTest['ap'] = ap
         })
 
         it('should read from db', async function () {
-            const ap = this.test!.ctx!['ap']
+            const ap = this.test['ap']
             const data = await ap.channelAffiliates()
             expect(data).length(1)
             expect(data[0]).to.have.property('affiliate', 'AFF1')

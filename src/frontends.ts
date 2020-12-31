@@ -2,8 +2,7 @@ import { memoize, MemoizedFunction } from 'lodash';
 import { mythNotifier, MythSenderEventEmitter, monitorEvents, EventMapping } from "mythtv-event-emitter";
 import { ApiTypes, Frontend, getFrontendServices, masterBackend } from "mythtv-services-api";
 import { mergeObject } from "./mergeObject";
-import { EndpointEmitter } from '@vestibule-link/bridge-assistant'
-import { AssistantType } from '@vestibule-link/iot-types'
+import { ServiceProviderType, EndpointConnector, ServiceProviderConnectors } from '@vestibule-link/bridge-service-provider'
 export const frontends: MythEventFrontend[] = []
 
 const FE_POLLING_INTERVAL = Number(process.env['MYTH_FE_POLLING_INTERVAL'] || 30000)
@@ -12,7 +11,7 @@ type Callback = () => void;
 export class CachingEventFrontend {
     private readonly memoizeStatus: MemoizedFunction
     private readonly memoizeEventDelta: MemoizedFunction
-    private assistantEmitters = new Map<AssistantType, EndpointEmitter<any>>()
+    private providerConnectors = new Map<ServiceProviderType, EndpointConnector>()
     private disconnectCallbacks = new Set<Callback>()
     private connected = false
     private fePollingTimeout?: NodeJS.Timeout
@@ -59,17 +58,17 @@ export class CachingEventFrontend {
             this.watching = true
         })
     }
-    public addConnectionMonitor<T extends AssistantType>(assistantType: T, emitter: EndpointEmitter<T>, disconnectCallback: Callback) {
-        this.assistantEmitters.set(assistantType, emitter)
+    public addConnectionMonitor<T extends ServiceProviderType>(providerName: T, connector: Required<ServiceProviderConnectors>[T], disconnectCallback: Callback) {
+        this.providerConnectors.set(providerName, <EndpointConnector>connector)
         this.disconnectCallbacks.add(disconnectCallback)
         if (!this.fePollingTimeout) {
             this.pollConnection()
         }
     }
-    public removeConnectionMonitor<T extends AssistantType>(assistantType: T, disconnectCallback: Callback) {
-        this.assistantEmitters.delete(assistantType)
+    public removeConnectionMonitor<T extends ServiceProviderType>(providerName: T, disconnectCallback: Callback) {
+        this.providerConnectors.delete(providerName)
         this.disconnectCallbacks.delete(disconnectCallback)
-        if (this.assistantEmitters.size == 0) {
+        if (this.providerConnectors.size == 0) {
             this.clearPollConnection()
         }
     }
@@ -98,8 +97,8 @@ export class CachingEventFrontend {
         }
     }
     private refreshEmitters() {
-        this.assistantEmitters.forEach(emitter => {
-            emitter.refresh(this.eventDeltaId())
+        this.providerConnectors.forEach(connector => {
+            connector.refresh(this.eventDeltaId())
         })
     }
     private executeDisconnect() {
@@ -204,8 +203,8 @@ export interface MythEventFrontend extends Frontend.Service {
     GetRefreshedStatus(): Promise<ApiTypes.FrontendStatus>
     eventDeltaId(): symbol
     monitorMythEvent<T extends keyof EventMapping, P extends EventMapping[T]>(eventName: T, timeout: number): Promise<P>;
-    addConnectionMonitor<T extends AssistantType>(assistantType: T, emitter: EndpointEmitter<T>, disconnectCallback: Callback): void;
-    removeConnectionMonitor<T extends AssistantType>(assistantType: T, disconnectCallback: Callback): void;
+    addConnectionMonitor<T extends ServiceProviderType>(providerName: T, connector: Required<ServiceProviderConnectors>[T], disconnectCallback: Callback): void;
+    removeConnectionMonitor<T extends ServiceProviderType>(providerName: T, disconnectCallback: Callback): void;
 }
 
 async function initFrontend(fe: Frontend.Service, masterBackendEmitter: MythSenderEventEmitter): Promise<MythEventFrontend> {

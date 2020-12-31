@@ -3,19 +3,17 @@ import { frontends, loadFrontends, MythEventFrontend } from '../src/frontends'
 import { expect } from 'chai'
 import * as nock from 'nock';
 import { createSandbox } from 'sinon';
-import { EndpointEmitter } from '@vestibule-link/bridge-assistant';
+import { EndpointConnector } from '@vestibule-link/bridge-service-provider';
 import { EventEmitter } from 'events';
-import { AlexaEndpoint, SubType } from '@vestibule-link/iot-types';
 import { mythNotifier } from 'mythtv-event-emitter';
 
 type DoneHolder = {
     done: Mocha.Done
     eventType: 'CLIENT_CONNECTED' | 'CLIENT_DISCONNECTED'
 }
-class RefreshEmitter extends EventEmitter implements EndpointEmitter<'alexa'> {
-    endpoint: AlexaEndpoint = {}
+class RefreshEmitter extends EventEmitter implements EndpointConnector {
     readonly doneTrackers = new Map<symbol, DoneHolder>()
-    private markDone(deltaId: symbol, eventType: SubType<DoneHolder, 'eventType'>) {
+    private markDone(deltaId: symbol, eventType: DoneHolder['eventType']) {
         const done = this.doneTrackers.get(deltaId)
         if (done) {
             this.doneTrackers.delete(deltaId)

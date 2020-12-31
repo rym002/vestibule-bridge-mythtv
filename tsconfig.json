@@ -8,7 +8,11 @@
         "outDir": "dist",
         "declaration": true,
         "moduleResolution": "node",
-        "strict": true
+        "strict": false,
+        "strictNullChecks": false,
+        "strictBindCallApply": true,
+        "strictFunctionTypes": true,
+        "strictPropertyInitialization": false
     },
     "exclude": [
         "dist",
