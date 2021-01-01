@@ -13,6 +13,7 @@ type DoneHolder = {
 }
 class RefreshEmitter extends EventEmitter implements EndpointConnector {
     readonly doneTrackers = new Map<symbol, DoneHolder>()
+    readonly endpointId = 'testEndpoint'
     private markDone(deltaId: symbol, eventType: DoneHolder['eventType']) {
         const done = this.doneTrackers.get(deltaId)
         if (done) {
