@@ -27,7 +27,7 @@
     "@vestibule-link/bridge-http": "^1.0.5",
     "@vestibule-link/bridge-service-provider": "^2.2.0",
     "mythtv-event-emitter": "^30.0.4",
-    "mythtv-services-api": "^31.0.2"
+    "mythtv-services-api": "^31.0.3"
   },
   "devDependencies": {
     "@types/chai": "^4.2.14",
