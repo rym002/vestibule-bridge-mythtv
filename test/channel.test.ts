@@ -3,7 +3,7 @@ import { expect } from 'chai'
 import nock from 'nock';
 import { createSandbox } from 'sinon';
 import { ChannelLookup, SqliteAffiliateProvider } from '../src/channel'
-import { OPEN_READWRITE } from 'sqlite3';
+import { OPEN_READWRITE } from '@vscode/sqlite3';
 
 describe('channelLookup', function () {
     const sandbox = createSandbox({

@@ -1,6 +1,6 @@
 {
   "name": "@vestibule-link/bridge-mythtv",
-  "version": "2.1.4",
+  "version": "2.1.5",
   "description": "MythTv integration",
   "main": "dist/index.js",
   "scripts": {
@@ -18,10 +18,10 @@
     "type": "git"
   },
   "dependencies": {
+    "@vscode/sqlite3": "^5.0.7",
     "fuse.js": "^6.4.6",
     "lodash": "^4.17.21",
-    "sd-json": "^1.0.7",
-    "sqlite3": "npm:@vscode/sqlite3@^5.0.7"
+    "sd-json": "^1.0.7"
   },
   "peerDependencies": {
     "@vestibule-link/bridge-http": "^1.0.6",

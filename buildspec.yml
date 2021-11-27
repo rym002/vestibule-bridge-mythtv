@@ -2,10 +2,11 @@ version: 0.2
 phases:
   install:
     runtime-versions:
-      nodejs: 12
+      nodejs: 14
   pre_build:
     commands:
-      - npm install      
+      - npm install @vscode/sqlite3 --build-from-source --no-save
+      - npm install
   build:
     commands:
       - npm test

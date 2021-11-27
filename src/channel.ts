@@ -1,11 +1,9 @@
+import { Database, OPEN_READONLY } from '@vscode/sqlite3';
 import Fuse from 'fuse.js';
 import { Dictionary, flatten, keyBy, values } from 'lodash';
 import { ApiTypes, masterBackend } from 'mythtv-services-api';
 import { Channel, Service } from 'sd-json';
 import { getMasterBackendEmitter } from './frontends';
-import { Database, OPEN_READONLY, Statement } from 'sqlite3'
-// import * as sqlite3 from 'sqlite3'
-//import { open, Database as Db } from 'sqlite'
 
 class FuseOpt implements Fuse.IFuseOptions<AffiliateChannelInfo> {
     readonly includeScore = true
