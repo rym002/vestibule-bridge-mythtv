@@ -1,7 +1,7 @@
 import 'mocha';
 import { frontends, loadFrontends, MythEventFrontend } from '../src/frontends'
 import { expect } from 'chai'
-import * as nock from 'nock';
+import nock from 'nock';
 import { createSandbox } from 'sinon';
 import { EndpointConnector } from '@vestibule-link/bridge-service-provider';
 import { EventEmitter } from 'events';

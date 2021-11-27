@@ -12,7 +12,8 @@
         "strictNullChecks": false,
         "strictBindCallApply": true,
         "strictFunctionTypes": true,
-        "strictPropertyInitialization": false
+        "strictPropertyInitialization": false,
+        "esModuleInterop": true
     },
     "exclude": [
         "dist",

@@ -1,6 +1,6 @@
 import 'mocha';
 import { expect } from 'chai'
-import * as nock from 'nock';
+import nock from 'nock';
 import { createSandbox } from 'sinon';
 import { ChannelLookup, SqliteAffiliateProvider } from '../src/channel'
 import { OPEN_READWRITE } from 'sqlite3';

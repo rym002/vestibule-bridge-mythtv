@@ -1,4 +1,4 @@
-import * as Fuse from 'fuse.js';
+import Fuse from 'fuse.js';
 import { Dictionary, flatten, keyBy, values } from 'lodash';
 import { ApiTypes, masterBackend } from 'mythtv-services-api';
 import { Channel, Service } from 'sd-json';
@@ -7,12 +7,13 @@ import { Database, OPEN_READONLY, Statement } from 'sqlite3'
 // import * as sqlite3 from 'sqlite3'
 //import { open, Database as Db } from 'sqlite'
 
-class FuseOpt implements Fuse.FuseOptions<AffiliateChannelInfo> {
+class FuseOpt implements Fuse.IFuseOptions<AffiliateChannelInfo> {
     readonly includeScore = true
     readonly caseSensitive = false
     readonly keys: { name: keyof AffiliateChannelInfo; weight: number }[];
     readonly shouldSort = true;
     readonly minMatchCharLength = 3;
+    readonly useExtendedSearch = true;
     constructor(name: keyof AffiliateChannelInfo, readonly tokenize: boolean) {
         this.keys = [
             {
@@ -74,9 +75,9 @@ export class SqliteAffiliateProvider implements AffiliateProvider {
     }
     async channelAffiliates(): Promise<Channel[]> {
         const db = await this.getDatabase()
-        const data = await new Promise<DbRow[]>((resolve,reject)=>{
-            db.all('SELECT details FROM stations WHERE details LIKE ?', '%affiliate%', (err:Error,rows:DbRow[])=>{
-                if (err){
+        const data = await new Promise<DbRow[]>((resolve, reject) => {
+            db.all('SELECT details FROM stations WHERE details LIKE ?', '%affiliate%', (err: Error, rows: DbRow[]) => {
+                if (err) {
                     reject(err)
                 }
                 resolve(rows)
@@ -99,7 +100,7 @@ export class ChannelLookup {
     private readonly chanNumToIndex = new Map<string, number>();
     private readonly channelNameFuseOpt = new FuseOpt('ChannelName', true)
     private channels: AffiliateChannelInfo[] = [];
-    private channelNameFuse: Fuse<AffiliateChannelInfo, FuseOpt> = new Fuse(this.channels, this.channelNameFuseOpt)
+    private channelNameFuse: Fuse<AffiliateChannelInfo> = new Fuse(this.channels, this.channelNameFuseOpt)
     private channelInfoByChanId: Dictionary<AffiliateChannelInfo> = {}
     private channelInfoByCallSign: Dictionary<AffiliateChannelInfo> = {}
     private channelInfoByAffiliate: Dictionary<AffiliateChannelInfo> = {}
@@ -188,7 +189,8 @@ export class ChannelLookup {
     }
     searchChannelName(chanName: string): string | undefined {
         for (let index = 0; index < this.hdSuffixes.length; index++) {
-            const hdSuffix = this.hdSuffixes[index];
+            const suffix = this.hdSuffixes[index];
+            const hdSuffix = suffix ? ' ' + suffix + '$' : suffix
             const chanNum = this.searchChannel(this.channelNameFuse, chanName + ' ' + hdSuffix)
             if (chanNum) {
                 return chanNum;
@@ -210,7 +212,7 @@ export class ChannelLookup {
             return chanNum.ChanNum;
         }
     }
-    private searchChannel(fuse: Fuse<AffiliateChannelInfo, FuseOpt>, search: string): string | undefined {
+    private searchChannel(fuse: Fuse<AffiliateChannelInfo>, search: string): string | undefined {
         const ret = fuse.search(search, {
             limit: 1
         })
